@@ -1,0 +1,5 @@
+.vscode
+.venv
+.credential.json
+client_secret.json
+__pycache__
