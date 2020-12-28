@@ -70,8 +70,11 @@ def deployer_login(client_secret: dict) -> Credentials:
         if cred.valid:
             need_update = False
         else:
+            refresh_token = cred.refresh_token
             cred.refresh(google.auth.transport.requests.Request())
-    except FileNotFoundError:
+            if refresh_token != cred.refresh_token:
+                need_update = True
+    except (FileNotFoundError, google.auth.exceptions.RefreshError):
         flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_config(
             client_secret, scopes=DEPLOY_SCOPES)
         flow.run_console()

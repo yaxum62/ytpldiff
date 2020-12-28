@@ -80,9 +80,24 @@ def run(request):
             f"projects/{this_project}/secrets/user_creds/versions/latest"
         }).payload.data)
 
+    updated = False
+
     for user, info in creds_info.items():
         print(f"diff for user {user}:LL")
         cred = Credentials.from_authorized_user_info(info)
         diff(user, cred, "LL")
+        if cred.refresh_token != info['refresh_token']:
+            print(f"updating credentials for user {user}")
+            creds_info[user] = json.loads(cred.to_json())
+            updated = True
+
+    if updated:
+        secret_mgr.add_secret_version(
+            request={
+                "parent": f"projects/{this_project}/secrets/user_creds",
+                "payload": {
+                    "data": json.dumps(creds_info).encode("ascii")
+                }
+            })
 
     return "Done"
