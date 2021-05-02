@@ -1,3 +1,4 @@
+from __future__ import annotations
 import typing
 import google.oauth2.credentials
 from googleapiclient import discovery, http
@@ -30,6 +31,33 @@ class PlaylistItem(typing.NamedTuple):
             raise TypeError(self)
         if self.id == "" or self.videoId == "" or self.title == "":
             raise ValueError(self)
+
+
+class Diff:
+    def __init__(self, old: list[PlaylistItem], new: list[PlaylistItem]):
+        old_dict = {i.videoId: i for i in old}
+        new_dict = {i.videoId: i for i in new}
+
+        self.__diff = []
+
+        for i in old_dict:
+            if i not in new_dict:
+                self.__diff.append((old_dict[i], None))
+
+        for i in new_dict:
+            if i not in old_dict:
+                self.__diff.append((None, new_dict[i]))
+            elif new_dict[i].title != old_dict[i].title:
+                self.__diff.append((old_dict[i], new_dict[i]))
+
+    def __iter__(
+        self
+    ) -> typing.Iterable[tuple[typing.Optional[PlaylistItem],
+                               typing.Optional[PlaylistItem]]]:
+        return iter(self.__diff)
+
+    def __bool__(self):
+        return bool(self.__diff)
 
 
 class History:

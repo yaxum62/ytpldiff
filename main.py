@@ -1,8 +1,7 @@
-from google.oauth2.credentials import Credentials
 from googleapiclient import discovery
-from playlist_history import History, PlaylistItem
+from playlist_history import History, PlaylistItem, Diff
 import typing
-from google.cloud import secretmanager
+import credential
 import os
 import json
 from notify import notify
@@ -39,65 +38,27 @@ def get_playlist_items(cred, pl_id):
     return ret
 
 
-def diff_list(
-    saved: typing.List[PlaylistItem], current: typing.List[PlaylistItem]
-) -> typing.Iterator[typing.Tuple[typing.Optional[PlaylistItem],
-                                  typing.Optional[PlaylistItem]]]:
-    saved_dict = {i.videoId: i for i in saved}
-    current_dict = {i.videoId: i for i in current}
-
-    for i in saved_dict:
-        if i not in current_dict:
-            yield saved_dict[i], None
-
-    for i in current_dict:
-        if i not in saved_dict:
-            yield None, current_dict[i]
-        elif current_dict[i].title != saved_dict[i].title:
-            yield saved_dict[i], current_dict[i]
-
-
-def diff(user, cred, playlist_id):
+def diff(cred, playlist_id):
     hist = History(cred, playlist_id)
     saved_items = hist.latest()
     current_items = get_playlist_items(cred, playlist_id)
 
-    diffs = list(diff_list(saved_items, current_items))
+    diffs = Diff(saved_items, current_items)
 
     if diffs:
         hist.append(current_items)
-        notify(user, cred, playlist_id, diffs)
+        notify(f"Your playlist {playlist_id} has been updated.", diffs)
 
     return diffs
 
 
-def run(request):
-    this_project = os.environ['GCP_PROJECT']
-    secret_mgr = secretmanager.SecretManagerServiceClient()
-    creds_info: dict = json.loads(
-        secret_mgr.access_secret_version(request={
-            "name":
-            f"projects/{this_project}/secrets/user_creds/versions/latest"
-        }).payload.data)
+def run():
+    with credential.Cred(credential.Cred.Kind.Credential) as cred:
+        if cred is None:
+            notify("cannot find credential")
+            return
+        diff(cred, "LL")
 
-    updated = False
 
-    for user, info in creds_info.items():
-        print(f"diff for user {user}:LL")
-        cred = Credentials.from_authorized_user_info(info)
-        diff(user, cred, "LL")
-        if cred.refresh_token != info['refresh_token']:
-            print(f"updating credentials for user {user}")
-            creds_info[user] = json.loads(cred.to_json())
-            updated = True
-
-    if updated:
-        secret_mgr.add_secret_version(
-            request={
-                "parent": f"projects/{this_project}/secrets/user_creds",
-                "payload": {
-                    "data": json.dumps(creds_info).encode("ascii")
-                }
-            })
-
-    return "Done"
+if __name__ == "__main__":
+    run()
