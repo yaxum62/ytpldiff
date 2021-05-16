@@ -1,10 +1,13 @@
 from googleapiclient import discovery
+import google.auth.exceptions
 from playlist_history import History, PlaylistItem, Diff
 import typing
 import credential
 import os
 import json
 from notify import notify
+from deploy_credentials import deploy
+import time
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.readonly"]
 
@@ -57,7 +60,18 @@ def run():
         if cred is None:
             notify("cannot find credential")
             return
-        diff(cred, "LL")
+        for i in range(2):
+            try:
+                diff(cred, "LL")
+            except google.auth.exceptions.GoogleAuthError as e:
+                notify(f"Auth failed: {e}")
+                deploy()
+                time.sleep(1)
+            else:
+                return
+        notify(f"too many fails, give up")
+
+
 
 
 if __name__ == "__main__":
