@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "ES2019",
+    "isolatedModules": true,
+    "module": "None"
+  },
+  "include": [
+    "*.ts",
+  ]
+}
